@@ -1,24 +1,45 @@
 package api
 
 import (
-	"github.com/thinktkj/go-rpc-demo/base"
+	"fmt"
+	"github.com/thinktkj/go-grpc-demo/base" // 引入编译生成的包
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"log"
+	"google.golang.org/grpc/grpclog"
 	"net"
-	"sync"
 )
 
-var grpcReq = &GrpcRequest{}
+const (
+	// Address gRPC服务地址
+	Address = "127.0.0.1:50052"
+)
 
-func GrpcEnable(wg *sync.WaitGroup) {
-	defer wg.Done()
-	server := grpc.NewServer()
-	listener, err := net.Listen("tcp", ":7080")
+// 定义helloService并实现约定的接口
+type helloService struct{}
+
+// HelloService Hello服务
+var HelloService = helloService{}
+
+// SayHello 实现Hello服务接口
+func (h helloService) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloResponse, error) {
+	resp := new(pb.HelloResponse)
+	resp.Message = fmt.Sprintf("Hello %s.", in.Name)
+
+	return resp, nil
+}
+
+func main() {
+	listen, err := net.Listen("tcp", Address)
 	if err != nil {
-		log.Printf("监听本地端口异常: %s", err)
-		return
+		grpclog.Fatalf("Failed to listen: %v", err)
 	}
-	base.RegisterGrpcSegmentServer(server, grpcReq)
-	grpcErr := server.Serve(listener)
-	log.Printf("服务异常: %s", grpcErr)
+
+	// 实例化grpc Server
+	s := grpc.NewServer()
+
+	// 注册HelloService
+	pb.RegisterHelloServer(s, HelloService)
+
+	grpclog.Println("Listen on " + Address)
+	s.Serve(listen)
 }
